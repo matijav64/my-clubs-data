@@ -181,6 +181,10 @@ def main():
     base, _ = os.path.splitext(args.video)
     out_path = args.out or f"{base}_anon.mp4"
 
+    out_dir = os.path.dirname(out_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+
     with tempfile.TemporaryDirectory() as td:
         tmp_video = os.path.join(td, "blurred.mp4")
         print("1/2 Zamegljujem obraz...")

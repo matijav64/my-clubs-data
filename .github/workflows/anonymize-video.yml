@@ -69,6 +69,7 @@ jobs:
 
       - name: Process (blur face + change voice)
         run: |
+          mkdir -p out
           python3 .github/anon/zamegli_obraz_in_glas.py input_source.mp4 \
             --pitch "${{ steps.cfg.outputs.pitch }}" \
             --blur "${{ steps.cfg.outputs.blur }}" \
