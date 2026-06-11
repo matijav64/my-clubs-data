@@ -58,6 +58,12 @@ def blur_faces(in_path, tmp_video, blur_strength, expand):
     # blur_strength mora biti liho stevilo za GaussianBlur
     k = max(3, int(blur_strength) | 1)
 
+    # Detekcijo izvajamo na pomanjsani sliki (mnogo hitreje pri visoki locljivosti),
+    # pravokotnike pa nato povecamo nazaj na polno locljivost.
+    det_w = 640
+    scale = det_w / float(w) if w > det_w else 1.0
+    det_min = max(20, int(40 * scale))
+
     last_boxes = []
     miss = 0
     idx = 0
@@ -68,7 +74,14 @@ def blur_faces(in_path, tmp_video, blur_strength, expand):
         idx += 1
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(40, 40))
+        if scale != 1.0:
+            small_gray = cv2.resize(gray, (int(w * scale), int(h * scale)))
+        else:
+            small_gray = gray
+        det = face_cascade.detectMultiScale(small_gray, 1.1, 5,
+                                            minSize=(det_min, det_min))
+        faces = [(int(x / scale), int(y / scale), int(fw / scale), int(fh / scale))
+                 for (x, y, fw, fh) in det]
 
         if len(faces) > 0:
             last_boxes = faces

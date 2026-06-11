@@ -24,6 +24,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: anonymize-video
+  cancel-in-progress: true
+
 jobs:
   anonymize:
     runs-on: ubuntu-latest
