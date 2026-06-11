@@ -1,21 +1,23 @@
 name: Anonymize video (blur face + change voice)
 
 on:
+  push:
+    branches:
+      - claude/charming-feynman-z5k8c9
+    paths:
+      - ".github/anon/job.json"
   workflow_dispatch:
     inputs:
       video_url:
         description: "Public URL of the source video"
         required: true
       pitch:
-        description: "Voice pitch (<1 deeper, >1 higher)"
         required: false
         default: "0.85"
       blur:
-        description: "Blur strength"
         required: false
         default: "45"
       out_name:
-        description: "Output filename"
         required: false
         default: "IMG_2194_anon.mp4"
 
@@ -28,6 +30,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Read job config
+        id: cfg
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "url=${{ github.event.inputs.video_url }}" >> "$GITHUB_OUTPUT"
+            echo "pitch=${{ github.event.inputs.pitch }}" >> "$GITHUB_OUTPUT"
+            echo "blur=${{ github.event.inputs.blur }}" >> "$GITHUB_OUTPUT"
+            echo "out=${{ github.event.inputs.out_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=$(jq -r '.video_url' .github/anon/job.json)" >> "$GITHUB_OUTPUT"
+            echo "pitch=$(jq -r '.pitch // "0.85"' .github/anon/job.json)" >> "$GITHUB_OUTPUT"
+            echo "blur=$(jq -r '.blur // "45"' .github/anon/job.json)" >> "$GITHUB_OUTPUT"
+            echo "out=$(jq -r '.out_name // "IMG_2194_anon.mp4"' .github/anon/job.json)" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Install ffmpeg
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
@@ -42,28 +59,28 @@ jobs:
 
       - name: Download source video
         run: |
-          curl -fL --retry 3 -o input_source.mp4 "${{ github.event.inputs.video_url }}"
+          curl -fL --retry 3 -o input_source.mp4 "${{ steps.cfg.outputs.url }}"
           ls -la input_source.mp4
           file input_source.mp4
 
       - name: Process (blur face + change voice)
         run: |
           python3 .github/anon/zamegli_obraz_in_glas.py input_source.mp4 \
-            --pitch "${{ github.event.inputs.pitch }}" \
-            --blur "${{ github.event.inputs.blur }}" \
-            -o "out/${{ github.event.inputs.out_name }}"
+            --pitch "${{ steps.cfg.outputs.pitch }}" \
+            --blur "${{ steps.cfg.outputs.blur }}" \
+            -o "out/${{ steps.cfg.outputs.out }}"
           ls -la out/
 
       - name: Commit result back to branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f "out/${{ github.event.inputs.out_name }}"
-          git commit -m "Add anonymized video output"
+          git add -f "out/${{ steps.cfg.outputs.out }}"
+          git commit -m "Add anonymized video output [skip ci]" || echo "nothing to commit"
           git push origin HEAD:${{ github.ref_name }}
 
-      - name: Upload as artifact too
+      - name: Upload as artifact
         uses: actions/upload-artifact@v4
         with:
           name: anonymized-video
-          path: out/${{ github.event.inputs.out_name }}
+          path: out/${{ steps.cfg.outputs.out }}
