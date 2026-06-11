@@ -76,16 +76,23 @@ jobs:
             -o "out/${{ steps.cfg.outputs.out }}"
           ls -la out/
 
+      - name: Upload as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: anonymized-video
+          path: out/${{ steps.cfg.outputs.out }}
+
       - name: Commit result back to branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f "out/${{ steps.cfg.outputs.out }}"
           git commit -m "Add anonymized video output [skip ci]" || echo "nothing to commit"
-          git push origin HEAD:${{ github.ref_name }}
-
-      - name: Upload as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: anonymized-video
-          path: out/${{ steps.cfg.outputs.out }}
+          for i in 1 2 3 4 5; do
+            git pull --rebase --autostash origin "${{ github.ref_name }}" || true
+            if git push origin HEAD:"${{ github.ref_name }}"; then
+              echo "push ok"; break
+            fi
+            echo "push attempt $i failed, retrying..."; sleep 3
+          done
